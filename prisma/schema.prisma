@@ -10,13 +10,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 // User model
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  name          String?
+  isActive      Boolean   @default(true)
+  role          Role      @default(USER)
+  sessions      Session[]
+  resetCode     String?   // Temporary reset code
+  resetExpiry   DateTime? // Reset code expiration time
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// Session model for authentication
+model Session {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String?   @unique // Hashed refresh token
+  isActive     Boolean   @default(true)
+  userAgent    String?
+  ipAddress    String?
+  lastActive   DateTime  @default(now())
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
 }
 
 // You can add your data models here

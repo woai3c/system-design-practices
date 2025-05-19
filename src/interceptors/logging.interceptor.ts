@@ -52,7 +52,7 @@ export class LoggingInterceptor implements NestInterceptor {
 
     return next.handle().pipe(
       tap({
-        next: (data: any) => {
+        next: () => {
           const responseTime = Date.now() - startTime
 
           // Log response time and basic status, without logging response body to avoid large logs
@@ -63,7 +63,7 @@ export class LoggingInterceptor implements NestInterceptor {
             `Time: ${responseTime}ms`,
           )
         },
-        error: (error: any) => {
+        error: () => {
           const responseTime = Date.now() - startTime
 
           this.logger.log(

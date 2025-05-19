@@ -3,15 +3,19 @@ import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common'
 import { AppController } from './app.controller'
 import { AppService } from './app.service'
 import { RequestIdMiddleware } from './middlewares/request-id.middleware'
+import { AuthModule } from './modules/auth/auth.module'
+import { CookieParserMiddleware } from './modules/auth/cookies.parser'
+import { UsersModule } from './modules/users/users.module'
 import { PrismaModule } from './prisma/prisma.module'
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, UsersModule, AuthModule],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(RequestIdMiddleware).forRoutes('*')
+    consumer.apply(CookieParserMiddleware).forRoutes('*')
   }
 }
