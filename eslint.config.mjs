@@ -48,16 +48,18 @@ export default tseslint.config(
       'import/prefer-default-export': 'off',
       'class-methods-use-this': 'off',
 
-      // remove unused import
-      'no-unused-vars': 'off',
-      'unused-imports/no-unused-imports': 'error',
-      'unused-imports/no-unused-vars': [
+      // Enable unused-imports plugin rules
+      'unused-imports/no-unused-imports': 'warn',
+      // For handling other unused variables
+      '@typescript-eslint/no-unused-vars': [
         'warn',
         {
-          vars: 'all',
-          varsIgnorePattern: '^_',
           args: 'after-used',
           argsIgnorePattern: '^_',
+          caughtErrors: 'all',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
           ignoreRestSiblings: true,
         },
       ],
