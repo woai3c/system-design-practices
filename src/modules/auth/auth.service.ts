@@ -17,7 +17,6 @@ export interface LoginResponse {
     email: string
     firstName: string | null
     lastName: string | null
-    role: string
   }
 }
 
@@ -30,7 +29,6 @@ export interface RefreshTokenResponse {
     email: string
     firstName: string | null
     lastName: string | null
-    role: string
   }
 }
 
@@ -66,7 +64,6 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: sessionId,
       email: user.email,
-      role: user.role,
     }
 
     const accessToken = this.jwtService.sign(payload, {
@@ -103,7 +100,6 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        role: user.role,
       },
     }
   }
@@ -124,7 +120,6 @@ export class AuthService {
     const payload: JwtPayload = {
       sub: session.id,
       email: user.email,
-      role: user.role,
     }
 
     return {
@@ -137,7 +132,6 @@ export class AuthService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        role: user.role,
       },
     }
   }

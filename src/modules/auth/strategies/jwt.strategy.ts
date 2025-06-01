@@ -5,17 +5,14 @@ import { PassportStrategy } from '@nestjs/passport'
 
 import { SessionsService } from '../sessions.service'
 
-// 定义JWT有效载荷类型
 export interface JwtPayload {
   sub: string // Session ID as subject
   email: string
-  role: string
 }
 
 export interface JwtUser {
   userId: string
   email: string
-  role: string
   sub: string
 }
 
@@ -55,7 +52,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       userId: session.user.id,
       email: session.user.email,
-      role: session.user.role,
       sub: payload.sub, // Include the session ID as subject
     }
   }

@@ -5,7 +5,6 @@ import { PassportStrategy } from '@nestjs/passport'
 
 import { AuthService } from '../auth.service'
 
-// 定义本地验证后返回的用户对象类型
 export interface LocalUser {
   id: string
   email: string
@@ -14,7 +13,6 @@ export interface LocalUser {
   lastName: string | null
   name: string | null
   isActive: boolean
-  role: string
   resetCode: string | null
   resetExpiry: Date | null
   createdAt: Date

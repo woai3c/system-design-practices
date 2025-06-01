@@ -10,10 +10,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  ADMIN
-}
 
 // User model
 model User {
@@ -24,7 +20,6 @@ model User {
   lastName      String?
   name          String?
   isActive      Boolean   @default(true)
-  role          Role      @default(USER)
   sessions      Session[]
   resetCode     String?   // Temporary reset code
   resetExpiry   DateTime? // Reset code expiration time
@@ -45,13 +40,3 @@ model Session {
   expiresAt    DateTime
   createdAt    DateTime  @default(now())
 }
-
-// You can add your data models here
-// For example:
-// model User {
-//   id        Int      @id @default(autoincrement())
-//   email     String   @unique
-//   name      String?
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// } 

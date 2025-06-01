@@ -4,6 +4,8 @@ Learn system design by following the guidance from the [system-design-primer](ht
 
 ## Project Overview
 
+[How to desing a Pastebin.com (or Bit.ly)?](https://github.com/donnemartin/system-design-primer/blob/master/solutions/system_design/pastebin/README.md)
+
 This repository serves as a foundational template for backend application development with built-in best practices. It provides a pre-configured environment with essential tools and libraries to help you quickly start building robust, scalable backend services.
 
 ## Features
@@ -13,7 +15,6 @@ This repository serves as a foundational template for backend application develo
 - **Authentication & Authorization**:
   - JWT-based authentication system
   - API key authentication for service-to-service communication
-  - Role-based access control
   - Session management with refresh tokens
 - **User Management**:
   - User registration and login
