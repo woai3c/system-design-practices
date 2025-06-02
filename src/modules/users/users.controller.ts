@@ -19,6 +19,42 @@ export class UsersController {
     return this.usersService.findAll()
   }
 
+  @ApiOperation({ summary: 'Get users count' })
+  @ApiResponse({ status: 200, description: 'Total users count' })
+  @ApiBearerAuth()
+  @Get('count')
+  async getUsersCount() {
+    const count = await this.usersService.getUsersCount()
+    return { count }
+  }
+
+  @ApiOperation({ summary: 'Get current user details' })
+  @ApiResponse({ status: 200, description: 'User details' })
+  @ApiBearerAuth()
+  @Get('profile')
+  async getCurrentUser(@User() user) {
+    return this.usersService.findById(user.userId)
+  }
+
+  @ApiOperation({ summary: 'Request password reset' })
+  @ApiBody({ type: ResetPasswordRequestDto })
+  @ApiResponse({ status: 200, description: 'Reset code sent if email exists' })
+  @ApiBearerAuth()
+  @Post('reset-password-request')
+  requestPasswordReset(@Body() resetPasswordRequestDto: ResetPasswordRequestDto) {
+    return this.usersService.createPasswordResetToken(resetPasswordRequestDto.email)
+  }
+
+  @ApiOperation({ summary: 'Reset password with code' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({ status: 200, description: 'Password reset successful' })
+  @ApiResponse({ status: 409, description: 'Invalid or expired reset code' })
+  @ApiBearerAuth()
+  @Post('reset-password')
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.usersService.resetPassword(resetPasswordDto.resetCode, resetPasswordDto.newPassword)
+  }
+
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'Returns the user' })
@@ -52,25 +88,6 @@ export class UsersController {
     return this.usersService.changePassword(id, changePasswordDto.currentPassword, changePasswordDto.newPassword)
   }
 
-  @ApiOperation({ summary: 'Request password reset' })
-  @ApiBody({ type: ResetPasswordRequestDto })
-  @ApiResponse({ status: 200, description: 'Reset code sent if email exists' })
-  @ApiBearerAuth()
-  @Post('reset-password-request')
-  requestPasswordReset(@Body() resetPasswordRequestDto: ResetPasswordRequestDto) {
-    return this.usersService.createPasswordResetToken(resetPasswordRequestDto.email)
-  }
-
-  @ApiOperation({ summary: 'Reset password with code' })
-  @ApiBody({ type: ResetPasswordDto })
-  @ApiResponse({ status: 200, description: 'Password reset successful' })
-  @ApiResponse({ status: 409, description: 'Invalid or expired reset code' })
-  @ApiBearerAuth()
-  @Post('reset-password')
-  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    return this.usersService.resetPassword(resetPasswordDto.resetCode, resetPasswordDto.newPassword)
-  }
-
   @Public()
   @ApiOperation({ summary: 'Get a public user profile' })
   @ApiResponse({ status: 200, description: 'Public user profile' })
@@ -82,22 +99,5 @@ export class UsersController {
       id: user.id,
       displayName: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email.split('@')[0],
     }
-  }
-
-  @ApiOperation({ summary: 'Get users count' })
-  @ApiResponse({ status: 200, description: 'Total users count' })
-  @ApiBearerAuth()
-  @Get('count')
-  async getUsersCount() {
-    const count = await this.usersService.getUsersCount()
-    return { count }
-  }
-
-  @ApiOperation({ summary: 'Get current user details' })
-  @ApiResponse({ status: 200, description: 'User details' })
-  @ApiBearerAuth()
-  @Get('profile')
-  async getCurrentUser(@User() user) {
-    return this.usersService.findById(user.userId)
   }
 }

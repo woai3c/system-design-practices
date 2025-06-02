@@ -1,9 +1,11 @@
 import { Body, Controller, NotFoundException, Post, Request, Response, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiBody, ApiCookieAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger'
 
-import { LoginUserDto } from '../users/user.dto'
+import { CreateUserDto, LoginUserDto } from '../users/user.dto'
+import { UsersService } from '../users/users.service'
 import { AuthService } from './auth.service'
 import { COOKIE_OPTIONS, TOKEN_DURATION } from './constants'
+import { Public } from './decorators/public.decorator'
 import { User } from './decorators/user.decorator'
 import { RefreshTokenDto } from './dto/refresh-token.dto'
 import { LocalAuthGuard } from './guards/local-auth.guard'
@@ -11,7 +13,24 @@ import { LocalAuthGuard } from './guards/local-auth.guard'
 @ApiTags('authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService,
+  ) {}
+
+  @ApiOperation({ summary: 'Register a new user' })
+  @ApiBody({ type: CreateUserDto })
+  @ApiResponse({ status: 201, description: 'User registered successfully, returns tokens and user data' })
+  @ApiResponse({ status: 409, description: 'Email already in use' })
+  @Public()
+  @Post('register')
+  async register(@Body() createUserDto: CreateUserDto, @Request() req, @Response({ passthrough: true }) res) {
+    // Create the user
+    const user = await this.usersService.create(createUserDto)
+
+    // Generate tokens and log the user in
+    return this.authService.login(user, req.headers['user-agent'], req.ip, res)
+  }
 
   @ApiOperation({ summary: 'User login' })
   @ApiBody({ type: LoginUserDto })
