@@ -19,6 +19,23 @@ export class UsersController {
     return this.usersService.findAll()
   }
 
+  @ApiOperation({ summary: 'Get users count' })
+  @ApiResponse({ status: 200, description: 'Total users count' })
+  @ApiBearerAuth()
+  @Get('count')
+  async getUsersCount() {
+    const count = await this.usersService.getUsersCount()
+    return { count }
+  }
+
+  @ApiOperation({ summary: 'Get current user details' })
+  @ApiResponse({ status: 200, description: 'User details' })
+  @ApiBearerAuth()
+  @Get('profile')
+  async getCurrentUser(@User() user) {
+    return this.usersService.findById(user.userId)
+  }
+
   @ApiOperation({ summary: 'Get user by ID' })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponse({ status: 200, description: 'Returns the user' })
@@ -82,22 +99,5 @@ export class UsersController {
       id: user.id,
       displayName: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.email.split('@')[0],
     }
-  }
-
-  @ApiOperation({ summary: 'Get users count' })
-  @ApiResponse({ status: 200, description: 'Total users count' })
-  @ApiBearerAuth()
-  @Get('count')
-  async getUsersCount() {
-    const count = await this.usersService.getUsersCount()
-    return { count }
-  }
-
-  @ApiOperation({ summary: 'Get current user details' })
-  @ApiResponse({ status: 200, description: 'User details' })
-  @ApiBearerAuth()
-  @Get('profile')
-  async getCurrentUser(@User() user) {
-    return this.usersService.findById(user.userId)
   }
 }

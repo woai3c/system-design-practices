@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  minio:
+    image: minio/minio:latest
+    ports:
+      - '9000:9000' # API
+      - '9001:9001' # Console
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - ./temp/minio_data:/data
+    command: server /data --console-address ":9001"
+
+  # Creates the required buckets on startup
+  minio-setup:
+    image: minio/mc
+    depends_on:
+      - minio
+    restart: on-failure
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      mc alias set myminio http://minio:9000 minioadmin minioadmin;
+      mc mb --ignore-existing myminio/links-bucket;
+      mc policy set public myminio/links-bucket;
+      exit 0;
+      "

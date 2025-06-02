@@ -65,6 +65,12 @@ async function bootstrap() {
       .setDescription('API documentation for System Design Practices')
       .setVersion('1.0')
       .addBearerAuth()
+      .addCookieAuth('access_token', {
+        type: 'apiKey',
+        in: 'cookie',
+        name: 'access_token',
+      })
+      .addApiKey({ type: 'apiKey', in: 'header', name: 'x-api-key' }, 'x-api-key')
       .build()
 
     const document = SwaggerModule.createDocument(app, config)

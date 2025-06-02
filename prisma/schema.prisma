@@ -10,33 +10,45 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 // User model
 model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  passwordHash  String
-  firstName     String?
-  lastName      String?
-  name          String?
-  isActive      Boolean   @default(true)
-  sessions      Session[]
-  resetCode     String?   // Temporary reset code
-  resetExpiry   DateTime? // Reset code expiration time
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String?
+  lastName     String?
+  name         String?
+  isActive     Boolean   @default(true)
+  sessions     Session[]
+  links        Link[]
+  resetCode    String? // Temporary reset code
+  resetExpiry  DateTime? // Reset code expiration time
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
 
 // Session model for authentication
 model Session {
-  id           String    @id @default(uuid())
+  id           String   @id @default(uuid())
   userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  refreshToken String?   @unique // Hashed refresh token
-  isActive     Boolean   @default(true)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshToken String?  @unique // Hashed refresh token
+  isActive     Boolean  @default(true)
   userAgent    String?
   ipAddress    String?
-  lastActive   DateTime  @default(now())
+  lastActive   DateTime @default(now())
   expiresAt    DateTime
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime @default(now())
+}
+
+model Link {
+  id         String    @id @default(uuid())
+  filePath   String
+  shortUrl   String    @unique
+  visibility Boolean   @default(true)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
