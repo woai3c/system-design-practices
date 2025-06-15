@@ -12,6 +12,8 @@ This repository serves as a foundational template for backend application develo
 
 - **NestJS Framework**: Modern, progressive Node.js framework for building efficient and scalable server-side applications
 - **PostgreSQL**: Powerful, open-source relational database
+- **Redis**: In-memory data store for fast caching
+- **MinIO**: S3-compatible object storage
 - **Authentication & Authorization**:
   - JWT-based authentication system
   - API key authentication for service-to-service communication
@@ -35,6 +37,7 @@ This repository serves as a foundational template for backend application develo
 - Node.js (v14 or later)
 - PostgreSQL database
 - npm, yarn, or pnpm
+- Docker and Docker Compose (for local development)
 
 ## Getting Started
 
@@ -59,7 +62,40 @@ DATABASE_URL="postgresql://username:password@localhost:5432/mydb?schema=public"
 PORT=3000
 JWT_SECRET="your-secure-jwt-secret"
 API_KEY="your-api-key-for-service-communication"
+
+# MinIO Configuration
+MINIO_ENDPOINT="localhost"
+MINIO_PORT=9000
+MINIO_USE_SSL=false
+MINIO_ACCESS_KEY="minioadmin"
+MINIO_SECRET_KEY="minioadmin"
+MINIO_BUCKET_NAME="links-bucket"
+MINIO_CACHE_TTL=3600
+
+# Redis Configuration
+REDIS_HOST="localhost"
+REDIS_PORT=6379
+REDIS_PASSWORD=""
+REDIS_DB=0
+REDIS_DEFAULT_TTL=3600
 ```
+
+### Local Development with Docker
+
+For local development, you can use Docker Compose to run Redis and MinIO without installing them on your machine:
+
+```bash
+# Start Redis and MinIO services
+docker-compose -f docker-compose.local.yml up -d
+
+# Stop services
+docker-compose -f docker-compose.local.yml down
+```
+
+The services will be available at:
+
+- MinIO: http://localhost:9000 (API) and http://localhost:9001 (Console)
+- Redis: localhost:6379
 
 ### Database Setup
 

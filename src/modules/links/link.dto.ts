@@ -108,7 +108,7 @@ export class LinkResponseDto {
   @ApiPropertyOptional({
     example: '2025-12-31T23:59:59Z',
   })
-  expiresAt?: Date
+  expiresAt?: Date | null
 
   @ApiProperty({
     example: '2023-06-01T12:00:00Z',

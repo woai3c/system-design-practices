@@ -27,3 +27,13 @@ services:
       mc policy set public myminio/links-bucket;
       exit 0;
       "
+
+  # Redis service for caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - ./temp/redis_data:/data
+    command: redis-server --appendonly yes
+    restart: always

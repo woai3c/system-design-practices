@@ -2,6 +2,8 @@ import { createHash } from 'crypto'
 
 import { Injectable, NotFoundException } from '@nestjs/common'
 
+import { Link } from '@prisma/client'
+
 import { PaginatedResponseDto, PaginationQueryDto } from '../../dtos/pagination.dto'
 import { PrismaService } from '../../prisma/prisma.service'
 import { MinioService } from '../minio/minio.service'
@@ -41,16 +43,14 @@ export class LinksService {
         let content = ''
 
         if (link.expiresAt && link.expiresAt > new Date() && link.visibility) {
+          // MinioService already handles caching internally
           content = await this.minioService.getContent(link.filePath)
         }
 
         // Create a new object without filePath
         const { filePath, ...linkWithoutFilePath } = link
 
-        return {
-          ...linkWithoutFilePath,
-          content,
-        }
+        return this.formatLinkResponse(linkWithoutFilePath, content)
       }),
     )
 
@@ -76,16 +76,13 @@ export class LinksService {
       throw new NotFoundException(`Link with ID ${id} has expired`)
     }
 
-    // Get content from MinIO
+    // Get content from MinIO (MinioService already handles caching internally)
     const content = await this.minioService.getContent(link.filePath)
 
     // Create a new object without filePath
     const { filePath, ...linkWithoutFilePath } = link
 
-    return {
-      ...linkWithoutFilePath,
-      content,
-    }
+    return this.formatLinkResponse(linkWithoutFilePath, content)
   }
 
   async findByShortUrl(shortUrl: string) {
@@ -101,16 +98,13 @@ export class LinksService {
       throw new NotFoundException(`Link with short URL ${shortUrl} has expired`)
     }
 
-    // Get content from MinIO
+    // Get content from MinIO (MinioService already handles caching internally)
     const content = await this.minioService.getContent(link.filePath)
 
     // Create a new object without filePath
     const { filePath, ...linkWithoutFilePath } = link
 
-    return {
-      ...linkWithoutFilePath,
-      content,
-    }
+    return this.formatLinkResponse(linkWithoutFilePath, content)
   }
 
   async create(userId: string, createLinkDto: CreateLinkDto) {
@@ -134,10 +128,7 @@ export class LinksService {
     // Return without filePath
     const { filePath: _, ...linkWithoutFilePath } = link
 
-    return {
-      ...linkWithoutFilePath,
-      content: createLinkDto.content,
-    }
+    return this.formatLinkResponse(linkWithoutFilePath, createLinkDto.content)
   }
 
   async update(id: string, userId: string, updateLinkDto: UpdateLinkDto) {
@@ -145,7 +136,7 @@ export class LinksService {
     await this.validateLinkOwnership(id, userId)
 
     // Prepare update data
-    const updateData: any = {
+    const updateData: Partial<Link> = {
       visibility: updateLinkDto.visibility,
       expiresAt: updateLinkDto.expiresAt,
     }
@@ -161,16 +152,19 @@ export class LinksService {
       data: updateData,
     })
 
-    // Get latest content from MinIO
-    const content = await this.minioService.getContent(updatedLink.filePath)
+    // Get latest content
+    let content: string
+    if (updateLinkDto.content) {
+      content = updateLinkDto.content
+    } else {
+      // MinioService already handles caching internally
+      content = await this.minioService.getContent(updatedLink.filePath)
+    }
 
     // Return without filePath
     const { filePath, ...linkWithoutFilePath } = updatedLink
 
-    return {
-      ...linkWithoutFilePath,
-      content,
-    }
+    return this.formatLinkResponse(linkWithoutFilePath, content)
   }
 
   async delete(id: string, userId: string) {
@@ -178,9 +172,11 @@ export class LinksService {
     await this.validateLinkOwnership(id, userId)
 
     // Delete link
-    return this.prisma.link.delete({
+    const result = await this.prisma.link.delete({
       where: { id },
     })
+
+    return result
   }
 
   async updateVisibility(id: string, userId: string, visibility: boolean) {
@@ -193,16 +189,13 @@ export class LinksService {
       data: { visibility },
     })
 
-    // Get content from MinIO
+    // Get content (MinioService already handles caching internally)
     const content = await this.minioService.getContent(updatedLink.filePath)
 
     // Return without filePath
     const { filePath, ...linkWithoutFilePath } = updatedLink
 
-    return {
-      ...linkWithoutFilePath,
-      content,
-    }
+    return this.formatLinkResponse(linkWithoutFilePath, content)
   }
 
   async updateExpiration(id: string, userId: string, expiresAt: Date) {
@@ -215,16 +208,13 @@ export class LinksService {
       data: { expiresAt },
     })
 
-    // Get content from MinIO
+    // Get content (MinioService already handles caching internally)
     const content = await this.minioService.getContent(updatedLink.filePath)
 
     // Return without filePath
     const { filePath, ...linkWithoutFilePath } = updatedLink
 
-    return {
-      ...linkWithoutFilePath,
-      content,
-    }
+    return this.formatLinkResponse(linkWithoutFilePath, content)
   }
 
   private async validateLinkOwnership(id: string, userId: string) {
@@ -251,63 +241,60 @@ export class LinksService {
    * @returns A unique short URL
    */
   private async generateUniqueShortUrl(userId: string, content: string): Promise<string> {
-    const MAX_ATTEMPTS = 10
-    let attempts = 0
-    let urlLength = 7 // Start with 7 characters
+    // Generate hash using user ID and content
+    const hash = createHash('md5').update(`${userId}:${content}:${Date.now()}`).digest('hex')
 
-    while (attempts < MAX_ATTEMPTS) {
-      // Generate timestamp for uniqueness
-      const timestamp = Date.now().toString()
+    // Encode hash to Base62 and take first 7 characters
+    let shortUrl = this.base62Encode(hash).substring(0, 7)
 
-      // Create MD5 hash from user ID + timestamp + content (for uniqueness)
-      const md5Hash = createHash('md5').update(`${userId}-${timestamp}-${content}`).digest('hex')
+    // Check if short URL already exists
+    const existingLink = await this.prisma.link.findUnique({
+      where: { shortUrl },
+    })
 
-      // Convert to Base62 and take first `urlLength` characters
-      const shortUrl = this.base62Encode(md5Hash).substring(0, urlLength)
-
-      // Check if it already exists
-      const existingLink = await this.prisma.link.findUnique({
-        where: { shortUrl },
-      })
-
-      // If not exists, return this shortUrl
-      if (!existingLink) {
-        return shortUrl
-      }
-
-      // Increment attempts
-      attempts++
-
-      // If we've tried several times, increase the length
-      if (attempts >= 5) {
-        urlLength++
-      }
+    // If exists, add incremental value and try again
+    if (existingLink) {
+      shortUrl = await this.generateUniqueShortUrl(userId, `${content}-${Math.random()}`)
     }
 
-    // If still failing after max attempts, use a longer hash
-    return this.base62Encode(
-      createHash('sha256').update(`${userId}-${Date.now()}-${Math.random()}`).digest('hex'),
-    ).substring(0, 10) // Use 10 characters from SHA256
+    return shortUrl
   }
 
   /**
-   * Encode a hexadecimal string to Base62
-   * @param hex Hexadecimal string to encode
+   * Encode a hex string to Base62
+   * @param hex Hex string to encode
    * @returns Base62 encoded string
    */
   private base62Encode(hex: string): string {
-    const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-
-    // Convert hex to decimal
-    let decimal = BigInt('0x' + hex)
+    const base62Chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+    const hexLen = hex.length
+    const radix = BigInt(62)
+    let value = 0n
     let result = ''
 
+    // Convert hex to decimal
+    for (let i = 0; i < hexLen; i += 1) {
+      value = value * 16n + BigInt(parseInt(hex[i], 16))
+    }
+
     // Convert decimal to base62
-    while (decimal > 0) {
-      result = BASE62[Number(decimal % BigInt(62))] + result
-      decimal = decimal / BigInt(62)
+    while (value > 0) {
+      const remainder = value % radix
+      value = value / radix
+      result = base62Chars[Number(remainder)] + result
     }
 
     return result || '0'
+  }
+
+  /**
+   * Convert null to undefined for type compatibility with DTOs
+   */
+  private formatLinkResponse(link: Partial<LinkResponseDto>, content: string): LinkResponseDto {
+    return {
+      ...link,
+      content,
+      expiresAt: link.expiresAt || undefined, // Convert null to undefined
+    } as LinkResponseDto
   }
 }

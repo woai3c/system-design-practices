@@ -5,16 +5,19 @@ import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
 
 import { PrismaService } from '../../prisma/prisma.service'
+import { RedisService } from '../redis/redis.service'
 
 @Injectable()
 export class MinioService {
   private readonly client: Client
   private readonly bucket: string
   private readonly logger = new Logger(MinioService.name)
+  private readonly cacheTtl: number
 
   constructor(
     private configService: ConfigService,
     private prisma: PrismaService,
+    private redisService: RedisService,
   ) {
     this.client = new Client({
       endPoint: this.configService.get<string>('MINIO_ENDPOINT', 'localhost'),
@@ -24,6 +27,7 @@ export class MinioService {
       secretKey: this.configService.get<string>('MINIO_SECRET_KEY', 'minioadmin'),
     })
     this.bucket = this.configService.get<string>('MINIO_BUCKET_NAME', 'links-bucket')
+    this.cacheTtl = this.configService.get<number>('MINIO_CACHE_TTL', 3600) // Default 1 hour
   }
 
   /**
@@ -43,6 +47,21 @@ export class MinioService {
    */
   private async findFileByHash(contentHash: string): Promise<string | null> {
     try {
+      // Try to get from cache first
+      const cacheKey = `file-hash:${contentHash}`
+      const cachedPath = await this.redisService.get<string>(cacheKey)
+
+      if (cachedPath) {
+        try {
+          // Verify if the file still exists
+          await this.client.statObject(this.bucket, cachedPath)
+          return cachedPath
+        } catch {
+          // File doesn't exist, delete from cache
+          await this.redisService.delete(cacheKey)
+        }
+      }
+
       // Query hash value from database
       const fileHash = await this.prisma.fileHash.findUnique({
         where: { hash: contentHash },
@@ -61,6 +80,9 @@ export class MinioService {
               accessCount: { increment: 1 },
             },
           })
+
+          // Cache the file path
+          await this.redisService.set(cacheKey, fileHash.filePath, this.cacheTtl)
 
           return fileHash.filePath
         } catch {
@@ -121,6 +143,14 @@ export class MinioService {
         },
       })
 
+      // Cache the file path with its hash
+      const cacheKey = `file-hash:${contentHash}`
+      await this.redisService.set(cacheKey, filePath, this.cacheTtl)
+
+      // Cache the content
+      const contentCacheKey = `content:${filePath}`
+      await this.redisService.set(contentCacheKey, content, this.cacheTtl)
+
       this.logger.debug(`Content uploaded to ${filePath}, hash value is ${contentHash}`)
       return filePath
     } catch (error) {
@@ -136,11 +166,20 @@ export class MinioService {
    */
   async getContent(filePath: string): Promise<string> {
     try {
+      // Try to get from cache first
+      const cacheKey = `content:${filePath}`
+      const cachedContent = await this.redisService.get<string>(cacheKey)
+
+      if (cachedContent) {
+        this.logger.debug(`Content for ${filePath} retrieved from cache`)
+        return cachedContent
+      }
+
       // Get object from MinIO
       const dataStream = await this.client.getObject(this.bucket, filePath)
 
       // Read stream into string
-      return new Promise<string>((resolve, reject) => {
+      const content = await new Promise<string>((resolve, reject) => {
         let content = ''
 
         dataStream.on('data', (chunk) => {
@@ -155,6 +194,11 @@ export class MinioService {
           reject(err)
         })
       })
+
+      // Cache the content
+      await this.redisService.set(cacheKey, content, this.cacheTtl)
+
+      return content
     } catch (error) {
       this.logger.error(`Failed to get content from MinIO: ${error.message}`)
       throw error

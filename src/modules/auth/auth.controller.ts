@@ -37,6 +37,7 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Login successful, returns tokens and user data' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @UseGuards(LocalAuthGuard)
+  @Public()
   @Post('login')
   async login(@User() user, @Request() req, @Response({ passthrough: true }) res) {
     // Pass user agent, IP address and response object for cookie setting
