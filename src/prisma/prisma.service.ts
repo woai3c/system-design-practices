@@ -29,6 +29,10 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this.prisma.link
   }
 
+  get fileHash() {
+    return this.prisma.fileHash
+  }
+
   async onModuleInit() {
     await this.prisma.$connect()
     this.logger.log('Database connection established')

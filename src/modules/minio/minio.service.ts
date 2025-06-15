@@ -1,8 +1,10 @@
-import { randomUUID } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import { Client } from 'minio'
 
 import { Injectable, Logger } from '@nestjs/common'
 import { ConfigService } from '@nestjs/config'
+
+import { PrismaService } from '../../prisma/prisma.service'
 
 @Injectable()
 export class MinioService {
@@ -10,7 +12,10 @@ export class MinioService {
   private readonly bucket: string
   private readonly logger = new Logger(MinioService.name)
 
-  constructor(private configService: ConfigService) {
+  constructor(
+    private configService: ConfigService,
+    private prisma: PrismaService,
+  ) {
     this.client = new Client({
       endPoint: this.configService.get<string>('MINIO_ENDPOINT', 'localhost'),
       port: this.configService.get<number>('MINIO_PORT', 9000),
@@ -22,23 +27,101 @@ export class MinioService {
   }
 
   /**
-   * Upload text content to MinIO
-   * @param content The text content to store
-   * @returns The file path in MinIO
+   * Hash content using SHA-256
+   * @param content Text content to hash
+   * @returns Hash value of the content
+   */
+  private hashContent(content: string): string {
+    return createHash('sha256').update(content).digest('hex')
+  }
+
+  /**
+   * Find file with the same content based on hash value
+   * Uses database query instead of file traversal
+   * @param contentHash Content hash value
+   * @returns File path if found; otherwise null
+   */
+  private async findFileByHash(contentHash: string): Promise<string | null> {
+    try {
+      // Query hash value from database
+      const fileHash = await this.prisma.fileHash.findUnique({
+        where: { hash: contentHash },
+      })
+
+      if (fileHash) {
+        try {
+          // Verify if the file still exists
+          await this.client.statObject(this.bucket, fileHash.filePath)
+
+          // Update access time and count
+          await this.prisma.fileHash.update({
+            where: { id: fileHash.id },
+            data: {
+              accessedAt: new Date(),
+              accessCount: { increment: 1 },
+            },
+          })
+
+          return fileHash.filePath
+        } catch {
+          // File doesn't exist, delete record from database
+          await this.prisma.fileHash.delete({
+            where: { id: fileHash.id },
+          })
+          this.logger.debug(`File ${fileHash.filePath} doesn't exist, record deleted from database`)
+        }
+      }
+
+      return null
+    } catch (error) {
+      this.logger.error(`Error finding file with hash value ${contentHash}: ${error.message}`)
+      return null
+    }
+  }
+
+  /**
+   * Upload text content to MinIO with content deduplication
+   * @param content Text content to store
+   * @returns File path in MinIO
    */
   async uploadContent(content: string): Promise<string> {
     try {
-      // Create a Buffer from the content
+      // Generate hash value for content
+      const contentHash = this.hashContent(content)
+
+      // Check if the same content is already stored
+      const existingPath = await this.findFileByHash(contentHash)
+      if (existingPath) {
+        this.logger.debug(`Content with hash ${contentHash} already exists at ${existingPath}`)
+        return existingPath
+      }
+
+      // Create buffer for content
       const buffer = Buffer.from(content, 'utf-8')
+      const size = buffer.length
 
-      // Generate a unique file name
+      // Generate unique filename and path
+      const hashPrefix = contentHash.substring(0, 2)
       const fileName = `${Date.now()}-${randomUUID()}.txt`
-      const filePath = `content/${fileName}`
+      const filePath = `content/${hashPrefix}/${fileName}`
 
-      // Upload the buffer to MinIO
-      await this.client.putObject(this.bucket, filePath, buffer, buffer.length, { 'Content-Type': 'text/plain' })
+      // Upload buffer to MinIO
+      await this.client.putObject(this.bucket, filePath, buffer, size, {
+        'Content-Type': 'text/plain',
+        'Content-Hash': contentHash, // Store hash value as metadata
+      })
 
-      this.logger.debug(`Content uploaded to ${filePath}`)
+      // Save hash and path to database
+      await this.prisma.fileHash.create({
+        data: {
+          hash: contentHash,
+          filePath,
+          size,
+          accessCount: 1,
+        },
+      })
+
+      this.logger.debug(`Content uploaded to ${filePath}, hash value is ${contentHash}`)
       return filePath
     } catch (error) {
       this.logger.error(`Failed to upload content to MinIO: ${error.message}`)
@@ -48,15 +131,15 @@ export class MinioService {
 
   /**
    * Get text content from MinIO
-   * @param filePath The file path in MinIO
-   * @returns The text content
+   * @param filePath File path in MinIO
+   * @returns Text content
    */
   async getContent(filePath: string): Promise<string> {
     try {
-      // Get the object from MinIO
+      // Get object from MinIO
       const dataStream = await this.client.getObject(this.bucket, filePath)
 
-      // Read the stream into a buffer
+      // Read stream into string
       return new Promise<string>((resolve, reject) => {
         let content = ''
 
@@ -80,8 +163,8 @@ export class MinioService {
 
   /**
    * Get public URL for a file
-   * @param filePath The file path in MinIO
-   * @returns The public URL
+   * @param filePath File path in MinIO
+   * @returns Public URL
    */
   getPublicUrl(filePath: string): string {
     const endpoint = this.configService.get<string>('MINIO_ENDPOINT', 'localhost')

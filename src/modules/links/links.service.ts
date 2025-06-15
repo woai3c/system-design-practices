@@ -5,7 +5,7 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { PaginatedResponseDto, PaginationQueryDto } from '../../dtos/pagination.dto'
 import { PrismaService } from '../../prisma/prisma.service'
 import { MinioService } from '../minio/minio.service'
-import { CreateLinkDto, UpdateLinkDto } from './link.dto'
+import { CreateLinkDto, LinkResponseDto, UpdateLinkDto } from './link.dto'
 
 @Injectable()
 export class LinksService {
@@ -14,7 +14,7 @@ export class LinksService {
     private minioService: MinioService,
   ) {}
 
-  async findAll(userId?: string, paginationQuery?: PaginationQueryDto): Promise<PaginatedResponseDto<any>> {
+  async findAll(userId?: string, paginationQuery?: PaginationQueryDto): Promise<PaginatedResponseDto<LinkResponseDto>> {
     const { page = 1, pageSize = 10, orderBy = 'createdAt', order = 'desc' } = paginationQuery || {}
 
     // Calculate skip for pagination
@@ -60,7 +60,7 @@ export class LinksService {
       total,
       page,
       pageSize,
-    } as PaginatedResponseDto<any>
+    } as PaginatedResponseDto<LinkResponseDto>
   }
 
   async findById(id: string) {

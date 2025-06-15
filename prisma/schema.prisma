@@ -52,3 +52,16 @@ model Link {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
+
+// File hash mapping table for storing file content hash and file path mappings
+model FileHash {
+  id          String   @id @default(uuid())
+  hash        String   @unique // Hash value of file content
+  filePath    String // File path in MinIO
+  size        Int // File size (bytes)
+  createdAt   DateTime @default(now())
+  accessedAt  DateTime @default(now()) // Last access time
+  accessCount Int      @default(1) // Access count for usage statistics
+
+  @@index([hash])
+}

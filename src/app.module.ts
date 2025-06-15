@@ -7,7 +7,7 @@ import { RequestIdMiddleware } from './middlewares/request-id.middleware'
 import { AuthModule } from './modules/auth/auth.module'
 import { CookieParserMiddleware } from './modules/auth/cookies.parser'
 import { LinksModule } from './modules/links/links.module'
-import { CommonModule } from './modules/minio/minio.module'
+import { MinioModule } from './modules/minio/minio.module'
 import { UsersModule } from './modules/users/users.module'
 import { PrismaModule } from './prisma/prisma.module'
 
@@ -17,7 +17,7 @@ import { PrismaModule } from './prisma/prisma.module'
       isGlobal: true,
     }),
     PrismaModule,
-    CommonModule,
+    MinioModule,
     UsersModule,
     AuthModule,
     LinksModule,
